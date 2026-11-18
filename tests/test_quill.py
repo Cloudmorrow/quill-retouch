@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from cloudmorrow.quill.testing import Harness
 
-EDIT, TEXT, FILE = "retouch.edit", "retouch.text", "file"
+EDIT, LAYER, FILE = "retouch.edit", "retouch.layer", "file"
 
 
 @pytest.fixture()
@@ -36,13 +36,15 @@ def a_file(q, name="beach.jpg", folder="Photos"):
 def test_the_photo_screen_and_its_datamodels_check_out():
     manifest = tomllib.loads(Path("quill.toml").read_text())
     (editor,) = [s for s in manifest["screens"] if s.get("kit") == "photo"]
-    assert editor["texts"] == TEXT and editor["pictures"] == "pictures" and editor["export"] == "export"
-    assert editor["media"] == {"share": "my-files", "within": "Photos"}
+    assert editor["layers"] == LAYER and editor["pictures"] == "pictures" and editor["save"] == "save"
+    assert "export" not in editor and editor["media"] == {"share": "my-files", "within": "Photos"}
     # The edits come first: Retouch opens on them, and `cm retouch` has the photo kit's words.
     # Looking through the photos is Media's, which Retouch brings with it.
     assert [(s["id"], s["label"]) for s in manifest["screens"]] == [("editor", "Retouch")]
     assert manifest["requires"]["quills"] == ["media"]
     assert [a["id"] for a in manifest["apis"]] == ["pictures"] and manifest["apis"][0]["service"] == "draw"
+    save = next(a for a in manifest["actions"] if a["id"] == "save")
+    assert set(save["fields"]) == {"overwrite", "name"}
 
 
 def test_edit_this_photo_starts_an_edit_and_opens_it(q):
@@ -68,34 +70,41 @@ def test_only_a_photo_can_be_edited(q):
     assert q.list(EDIT) == []
 
 
-def test_export_queues_the_edit_for_the_renderer(q):
+def test_save_over_the_photo_queues_the_edit_for_the_renderer(q):
     photo = a_file(q)
     q.act("edit-photo", photo)
     (edit,) = q.list(EDIT)
-    done = q.act("export", edit, format="png", name="Beach at dusk")
-    assert done.ok and "Retouch Exports" in done.toast
+    done = q.act("save", edit, overwrite=True, name="beach.jpg")
+    assert done.ok and "Trash" in done.toast
     (edit,) = q.list(EDIT)
-    assert (edit["status"], edit["format"], edit["export_name"]) == ("queued", "png", "Beach at dusk")
-    assert "PNG" in edit["message"]
+    assert (edit["status"], edit["overwrite"], edit["save_name"]) == ("queued", True, "beach.jpg")
+    assert "over the photo" in edit["message"]
     # Queued, it is not queued twice.
-    assert "already" in q.act("export", edit).error
+    assert "already" in q.act("save", edit, overwrite=False, name="x.png").error
 
 
-def test_an_export_needs_a_format_it_knows(q):
-    photo = a_file(q)
-    edit = q.seed(EDIT, name="Beach", source=photo.id)
-    # The form refuses it before the code runs; the code would too.
-    assert "jpeg, png, webp" in q.act("export", edit, format="bmp").error
-
-
-def test_texts_go_with_their_edit(q):
+def test_save_as_a_new_file_needs_a_plain_name(q):
     photo = a_file(q)
     q.act("edit-photo", photo)
     (edit,) = q.list(EDIT)
-    q.seed(TEXT, edit=edit.id, text="Summer", x=10, y=80, size=8, colour="#f0a81e")
-    assert [t["text"] for t in q.list(TEXT, edit=edit.id)] == ["Summer"]
+    assert q.act("save", edit, overwrite=False, name="").error == "Give the new file a name"
+    assert "slashes" in q.act("save", edit, overwrite=False, name="Other/beach.png").error
+    done = q.act("save", edit, overwrite=False, name="beach edited.png")
+    assert done.ok and done.toast == "Saving as beach edited.png, beside the photo"
+    (edit,) = q.list(EDIT)
+    assert (edit["status"], edit["overwrite"], edit["save_name"]) == ("queued", False, "beach edited.png")
+
+
+def test_layers_go_with_their_edit(q):
+    photo = a_file(q)
+    q.act("edit-photo", photo)
+    (edit,) = q.list(EDIT)
+    q.seed(LAYER, edit=edit.id, kind="text", text="Summer", x=10, y=80, size=8, colour="#f0a81e")
+    q.seed(LAYER, edit=edit.id, kind="mark", points=[[1, 1], [5, 5]], x=1, y=1, colour="#e0323c", width=2)
+    q.seed(LAYER, edit=edit.id, kind="piece", source={"x": 0, "y": 0, "w": 20, "h": 20}, x=40, y=40, w=20, h=20)
+    assert sorted(layer["kind"] for layer in q.list(LAYER, edit=edit.id)) == ["mark", "piece", "text"]
     q.delete(EDIT, edit.id)
-    assert q.list(TEXT) == []
+    assert q.list(LAYER) == []
 
 
 def test_refresh_draws_again(q):

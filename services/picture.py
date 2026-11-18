@@ -6,19 +6,21 @@ through the record API as the administrator who installed Retouch:
 - **the pictures API** (`[[apis]] id = "pictures"`): an HTTP server on
   `$PORT`, which the core forwards `/api/q/retouch/pictures/…` to. `info` is
   a photo's size as taken (the camera's orientation applied), `source` the
-  photo itself at a width, `picture` an edit as it would export — turned,
-  mirrored, written on, cropped — at a width, which the terminal's viewer
-  draws;
+  photo itself at a width, `picture` an edit as it would save — turned,
+  mirrored, its layers on it, cropped — at a width, which the terminal's
+  viewer draws;
 - **filling in**: an edit with no width or height gets its photo's;
-- **exports**: an edit whose status is *queued* is rendered at its full size
-  and the result is put in My Files › Retouch Exports, made the first time;
-  the edit says *done* and points at it, or *failed* and why.
+- **saving**: an edit whose status is *queued* is rendered at its full size
+  and written over the photo (the one before goes to the Trash, and the edit
+  starts afresh on the saved picture) or put beside it as a new file; the
+  edit says *done* and points at it, or *failed* and why.
 
 The sums are the photo kit's (docs/PHOTO.md in the core): the turn, then
-the mirror, then the words (in percent of the turned picture), then the
-crop (the same), then the size. The words are drawn in the app's own
-letters, Barlow, from the core's web folder, so what the web app showed is
-what comes out; without it, Pillow's own letters.
+the mirror, then the layers, lowest first — words, marker strokes, pieces
+copied out of the turned picture (in percent of it) — then the crop (the
+same), then the size. The words are drawn in the app's own letters, Barlow,
+from the core's web folder, so what the web app showed is what comes out;
+without it, Pillow's own letters.
 
 Only the standard library and Pillow are used; Pillow is the server's,
 which makes the thumbnails too.
@@ -45,22 +47,24 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
-EDIT, TEXT, FILE = "retouch.edit", "retouch.text", "file"
-# Every export lands here, in the drive of whoever the renderer runs as.
-EXPORTS = ("my-files", "Retouch Exports")
+EDIT, LAYER, FILE = "retouch.edit", "retouch.layer", "file"
 EVERY = 3.0
-# The most pixels an export is across or down, and the widest a preview is.
+# The most pixels a save is across or down, and the widest a preview is.
 LONGEST = 8192
 WIDEST = 3840
-# What the kit starts a text with, when a record says nothing.
+# What the kit starts a layer with, when a record says nothing.
 TEXT_AT = (6.0, 6.0)
 TEXT_SIZE = 6.0
 TEXT_COLOUR = "#ffffff"
+MARK_WIDTH = 1.5
+MARK_OPACITY = 1.0
 WHOLE = {"x": 0.0, "y": 0.0, "w": 100.0, "h": 100.0}
+# What a save can be written as, by the name's suffix; anything else is written as a JPEG.
 FORMATS = {
-    "jpeg": {"suffix": ".jpg", "pil": "JPEG", "save": {"quality": 90, "optimize": True}, "alpha": False},
-    "png": {"suffix": ".png", "pil": "PNG", "save": {"optimize": True}, "alpha": True},
-    "webp": {"suffix": ".webp", "pil": "WEBP", "save": {"quality": 90, "method": 4}, "alpha": True},
+    ".jpg": {"pil": "JPEG", "save": {"quality": 90, "optimize": True}, "alpha": False},
+    ".jpeg": {"pil": "JPEG", "save": {"quality": 90, "optimize": True}, "alpha": False},
+    ".png": {"pil": "PNG", "save": {"optimize": True}, "alpha": True},
+    ".webp": {"pil": "WEBP", "save": {"quality": 90, "method": 4}, "alpha": True},
 }
 # Pillow is told the biggest picture it may open, so a bomb is refused, not read.
 Image.MAX_IMAGE_PIXELS = 200_000_000
@@ -118,6 +122,9 @@ class Store:
         return self.api(
             "PATCH", f"/api/records/{model}/{urllib.parse.quote(record_id, safe='')}", body={"fields": fields}
         )
+
+    def delete(self, model: str, record_id: str) -> None:
+        self.api("DELETE", f"/api/records/{model}/{urllib.parse.quote(record_id, safe='')}")
 
     def upload(self, share: str, folder: str, name: str, source: Path) -> dict:
         with source.open("rb") as handle:
@@ -187,8 +194,18 @@ def crop_of(fields: dict) -> dict:
     return {"x": x, "y": y, "w": w, "h": h}
 
 
+def box_of(value, fallback: dict) -> dict:
+    if not isinstance(value, dict):
+        return dict(fallback)
+    x = min(max(number(value.get("x")), 0.0), 100.0)
+    y = min(max(number(value.get("y")), 0.0), 100.0)
+    w = min(max(number(value.get("w"), 10.0), 0.5), 100.0 - x)
+    h = min(max(number(value.get("h"), 10.0), 0.5), 100.0 - y)
+    return {"x": x, "y": y, "w": w, "h": h}
+
+
 def output_size(fields: dict, cropped: tuple[int, int]) -> tuple[int, int]:
-    """What the export is: the cropped size, or what out_width and out_height say."""
+    """What the save is: the cropped size, or what out_width and out_height say."""
     w, h = cropped
     ww, wh = int(number(fields.get("out_width"))), int(number(fields.get("out_height")))
     if ww > 0 and wh > 0:
@@ -213,14 +230,52 @@ def colour_of(value) -> tuple[int, int, int]:
     return int(said[0:2], 16), int(said[2:4], 16), int(said[4:6], 16)
 
 
-def text_of(fields: dict) -> dict:
-    return {
-        "text": str(fields.get("text") or ""),
+def points_of(value) -> list[tuple[float, float]]:
+    out = []
+    for item in value if isinstance(value, list) else []:
+        if isinstance(item, (list, tuple)) and len(item) == 2:
+            try:
+                out.append((min(max(float(item[0]), 0.0), 100.0), min(max(float(item[1]), 0.0), 100.0)))
+            except (TypeError, ValueError):
+                continue
+    return out
+
+
+def layer_of(fields: dict) -> dict:
+    """A layer's fields as the kit draws them, by its kind."""
+    kind = str(fields.get("kind") or "text")
+    kind = kind if kind in ("text", "mark", "piece") else "text"
+    layer = {
+        "kind": kind,
         "x": min(max(number(fields.get("x"), TEXT_AT[0]), 0.0), 100.0),
         "y": min(max(number(fields.get("y"), TEXT_AT[1]), 0.0), 100.0),
-        "size": min(max(number(fields.get("size"), TEXT_SIZE), 0.5), 100.0),
+        "hidden": bool(fields.get("hidden")),
         "colour": colour_of(fields.get("colour")),
     }
+    if kind == "text":
+        layer["text"] = str(fields.get("text") or "")
+        layer["size"] = min(max(number(fields.get("size"), TEXT_SIZE), 0.5), 100.0)
+    elif kind == "mark":
+        layer["points"] = points_of(fields.get("points"))
+        layer["width"] = min(max(number(fields.get("width"), MARK_WIDTH), 0.1), 25.0)
+        layer["opacity"] = min(max(number(fields.get("opacity"), MARK_OPACITY), 0.05), 1.0)
+    else:
+        layer["source"] = box_of(fields.get("source"), {"x": 0, "y": 0, "w": 25, "h": 25})
+        layer["w"] = min(max(number(fields.get("w"), layer["source"]["w"]), 0.5), 100.0)
+        layer["h"] = min(max(number(fields.get("h"), layer["source"]["h"]), 0.5), 100.0)
+    return layer
+
+
+def in_order(records: list[dict]) -> list[dict]:
+    """Layer records, lowest first: by order, then by when they were made."""
+    return sorted(
+        records,
+        key=lambda r: (
+            int(number((r.get("fields") or {}).get("order"))),
+            str(r.get("created_at") or ""),
+            str(r.get("id") or ""),
+        ),
+    )
 
 
 # -- letters -----------------------------------------------------------------------------
@@ -278,28 +333,59 @@ def turned(image: Image.Image, rotate: int, mirror: bool) -> Image.Image:
     return ImageOps.mirror(image) if mirror else image
 
 
-def written(image: Image.Image, texts: list[dict]) -> Image.Image:
-    """The texts drawn on the picture, each at its place, in its size and colour, with a dark edge."""
-    if not texts:
-        return image
-    base = image.convert("RGBA")
-    layer = Image.new("RGBA", base.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(layer)
-    for text in texts:
-        px = max(1, round(text["size"] / 100 * base.height))
-        x = text["x"] / 100 * base.width
-        y = text["y"] / 100 * base.height
-        letters = font(px)
-        for i, line in enumerate(text["text"].split("\n")):
-            draw.text(
-                (x, y + i * px * 1.2),
-                line,
-                font=letters,
-                fill=(*text["colour"], 255),
-                stroke_width=max(1, round(px * 0.08)),
-                stroke_fill=(0, 0, 0, 140),
-            )
-    return Image.alpha_composite(base, layer)
+def draw_text(base: Image.Image, layer: dict) -> None:
+    """Words at their place, in their size and colour, with a dark edge, onto *base* (RGBA)."""
+    px = max(1, round(layer["size"] / 100 * base.height))
+    layer_img = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer_img)
+    x = layer["x"] / 100 * base.width
+    y = layer["y"] / 100 * base.height
+    letters = font(px)
+    for i, line in enumerate(layer["text"].split("\n")):
+        draw.text(
+            (x, y + i * px * 1.2),
+            line,
+            font=letters,
+            fill=(*layer["colour"], 255),
+            stroke_width=max(1, round(px * 0.08)),
+            stroke_fill=(0, 0, 0, 140),
+        )
+    base.alpha_composite(layer_img)
+
+
+def draw_mark(base: Image.Image, layer: dict) -> None:
+    """A marker stroke: a round line through its points, as wide and as solid as it says."""
+    pts = [(x / 100 * base.width, y / 100 * base.height) for x, y in layer["points"]]
+    if not pts:
+        return
+    width = max(1, round(layer["width"] / 100 * base.height))
+    alpha = round(layer["opacity"] * 255)
+    layer_img = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer_img)
+    colour = (*layer["colour"], 255)
+    half = width / 2
+    if len(pts) > 1:
+        draw.line(pts, fill=colour, width=width, joint="curve")
+    for x, y in (pts[0], pts[-1]) if len(pts) > 1 else pts:
+        draw.ellipse((x - half, y - half, x + half, y + half), fill=colour)
+    if alpha < 255:
+        # The stroke as one shape, made see-through all at once: no darker where it crosses itself.
+        layer_img.putalpha(layer_img.getchannel("A").point(lambda a: a * alpha // 255))
+    base.alpha_composite(layer_img)
+
+
+def draw_piece(base: Image.Image, source: Image.Image, layer: dict) -> None:
+    """A piece of the turned picture, scaled into its box."""
+    s = layer["source"]
+    left = round(s["x"] / 100 * source.width)
+    top = round(s["y"] / 100 * source.height)
+    right = min(source.width, max(left + 1, round((s["x"] + s["w"]) / 100 * source.width)))
+    bottom = min(source.height, max(top + 1, round((s["y"] + s["h"]) / 100 * source.height)))
+    piece = source.crop((left, top, right, bottom))
+    w = max(1, round(layer["w"] / 100 * base.width))
+    h = max(1, round(layer["h"] / 100 * base.height))
+    piece = piece.resize((w, h), Image.Resampling.LANCZOS).convert("RGBA")
+    base.alpha_composite(piece, (round(layer["x"] / 100 * base.width), round(layer["y"] / 100 * base.height)))
 
 
 def cropped(image: Image.Image, crop: dict) -> Image.Image:
@@ -313,11 +399,22 @@ def cropped(image: Image.Image, crop: dict) -> Image.Image:
     return image.crop((left, top, right, bottom))
 
 
-def compose(image: Image.Image, fields: dict, texts: list[dict]) -> Image.Image:
-    """The edit done to the picture, in the kit's order: turn, mirror, words, crop."""
-    image = turned(image, rotation_of(fields), bool(fields.get("mirror")))
-    image = written(image, [text_of(t) for t in texts])
-    return cropped(image, crop_of(fields))
+def compose(image: Image.Image, fields: dict, layers: list[dict]) -> Image.Image:
+    """The edit done to the picture, in the kit's order: turn, mirror, the layers lowest first, crop."""
+    source = turned(image, rotation_of(fields), bool(fields.get("mirror")))
+    shown = [layer_of(f) for f in layers]
+    shown = [layer for layer in shown if not layer["hidden"]]
+    if not shown:
+        return cropped(source, crop_of(fields))
+    base = source.convert("RGBA")
+    for layer in shown:
+        if layer["kind"] == "text":
+            draw_text(base, layer)
+        elif layer["kind"] == "mark":
+            draw_mark(base, layer)
+        else:
+            draw_piece(base, source, layer)
+    return cropped(base, crop_of(fields))
 
 
 def sized(image: Image.Image, size: tuple[int, int]) -> Image.Image:
@@ -339,6 +436,14 @@ def jpeg_bytes(image: Image.Image) -> bytes:
     out = io.BytesIO()
     flat(image, False).save(out, format="JPEG", quality=85)
     return out.getvalue()
+
+
+def fitted(image: Image.Image, width: int) -> Image.Image:
+    """The picture *width* pixels wide, or as it is when it is narrower."""
+    width = min(max(16, int(width)), WIDEST)
+    if image.width <= width:
+        return image
+    return image.resize((width, max(1, round(image.height * width / image.width))), Image.Resampling.LANCZOS)
 
 
 class Renderer:
@@ -394,11 +499,11 @@ class Renderer:
         self._mine(found, user)
         return found
 
-    def texts(self, edit: dict) -> list[dict]:
-        return [t["fields"] for t in self.store.records(TEXT, edit=edit["id"])]
+    def layers(self, edit: dict) -> list[dict]:
+        return [r["fields"] for r in in_order(self.store.records(LAYER, edit=edit["id"]))]
 
     def picture_jpeg(self, edit_id: str, width: int, user: str | None = None) -> bytes:
-        """The edit as it would export, *width* pixels wide: drawn from a smaller
+        """The edit as it would save, *width* pixels wide: drawn from a smaller
         copy of the photo, since every place and size is in percent."""
         edit = self.edit(edit_id, user)
         fields = edit["fields"]
@@ -409,14 +514,14 @@ class Renderer:
         # Enough pixels that the cropped part is still *width* wide, and no more.
         wanted = min(WIDEST * 2, round(width / (crop["w"] / 100)) * 2)
         image = opened(self.store.path_of(file), reduce_to=wanted)
-        image = compose(image, fields, self.texts(edit))
+        image = compose(image, fields, self.layers(edit))
         return jpeg_bytes(fitted(image, width))
 
     def render(self, edit: dict) -> Image.Image:
-        """The export at its full size."""
+        """The save at its full size."""
         fields = edit["fields"]
         file = self.file(str(fields["source"]))
-        image = compose(opened(self.store.path_of(file)), fields, self.texts(edit))
+        image = compose(opened(self.store.path_of(file)), fields, self.layers(edit))
         return sized(image, output_size(fields, image.size))
 
     # -- filling in what the kit left blank ---------------------------------------------
@@ -434,69 +539,108 @@ class Renderer:
             self.store.patch(EDIT, edit["id"], {"width": info["width"], "height": info["height"]})
             log("size of", f.get("name"), "is", info["width"], "x", info["height"])
 
-    # -- exports ---------------------------------------------------------------------
-    def render_queued(self) -> None:
+    # -- saving ------------------------------------------------------------------------
+    def save_queued(self) -> None:
         for edit in self.store.records(EDIT, status="queued"):
-            self.export(edit)
+            self.save(edit)
 
-    def export(self, edit: dict) -> dict:
-        """Render one edit's export; the edit as it is after, done or failed."""
+    def save(self, edit: dict) -> dict:
+        """Save one edit: over the photo, or beside it. The edit as it is after, done or failed."""
         fields = edit["fields"]
-        self.store.patch(EDIT, edit["id"], {"status": "rendering", "message": "Rendering"})
-        fmt = FORMATS.get(str(fields.get("format") or "jpeg")) or FORMATS["jpeg"]
+        self.store.patch(EDIT, edit["id"], {"status": "rendering", "message": "Saving"})
         started = time.time()
         try:
             if not fields.get("source"):
                 raise ValueError("this edit has no photo")
+            photo = self.file(str(fields["source"]))
+            share = str(photo["fields"].get("share") or "my-files")
+            folder = str(photo["fields"].get("folder") or "")
+            photo_name = str(photo["fields"].get("name") or "photo.jpg")
+            overwrite = bool(fields.get("overwrite"))
+            wanted = str(fields.get("save_name") or "").strip() if not overwrite else photo_name
+            if not wanted:
+                raise ValueError("the new file needs a name")
+            stem, suffix = split_name(wanted, photo_name)
+            fmt = FORMATS.get(suffix.lower())
+            if fmt is None:
+                # A kind nothing here writes (HEIC, GIF…): a JPEG beside it, under the same name.
+                suffix, fmt = ".jpg", FORMATS[".jpg"]
+                if overwrite:
+                    overwrite = False
             image = flat(self.render(edit), fmt["alpha"])
-            share, folder = EXPORTS
-            ensure_folder(self.store, share, folder)
-            name = unique_name(
-                self.store, share, folder, export_stem(fields.get("export_name") or fields.get("name")), fmt["suffix"]
-            )
             self.home.mkdir(parents=True, exist_ok=True)
             with tempfile.TemporaryDirectory(dir=self.home) as tmp:
-                out = Path(tmp) / ("out" + fmt["suffix"])
-                log("rendering", fields.get("name"), "as", fmt["pil"], image.size)
+                out = Path(tmp) / ("out" + suffix)
+                log(
+                    "saving",
+                    fields.get("name"),
+                    "as",
+                    fmt["pil"],
+                    image.size,
+                    "over" if overwrite else "beside",
+                    photo_name,
+                )
                 image.save(out, format=fmt["pil"], **fmt["save"])
-                made = self.store.upload(share, folder, name, out)
+                if overwrite:
+                    made = self.write_over(photo, share, folder, out)
+                else:
+                    name = unique_name(self.store, share, folder, stem, suffix)
+                    made = self.store.upload(share, folder, name, out)
         except (ValueError, Refused, ApiError, OSError) as exc:
-            log("export", fields.get("name"), "failed:", exc)
-            return self.store.patch(
-                EDIT, edit["id"], {"status": "failed", "message": f"The export failed: {exc}"[:400]}
-            )
+            log("save", fields.get("name"), "failed:", exc)
+            return self.store.patch(EDIT, edit["id"], {"status": "failed", "message": f"The save failed: {exc}"[:400]})
+        made_name = str(made["fields"].get("name") or wanted)
         where = "/".join(x for x in ("My Files" if share == "my-files" else share, folder) if x)
-        said = f"Exported {name} ({image.size[0]} × {image.size[1]}) to {where} in {time.time() - started:.0f} s"
+        size = f"{image.size[0]} × {image.size[1]}"
+        if overwrite:
+            # The picture is the edit now: it starts afresh on the saved photo.
+            for layer in self.store.records(LAYER, edit=edit["id"]):
+                with contextlib.suppress(ApiError):
+                    self.store.delete(LAYER, layer["id"])
+            said = f"Saved over {made_name} ({size}) in {time.time() - started:.0f} s; the one before is in the Trash"
+            log(said)
+            return self.store.patch(
+                EDIT,
+                edit["id"],
+                {
+                    "status": "done",
+                    "message": said,
+                    "output": made["id"],
+                    "source": made["id"],
+                    "width": image.size[0],
+                    "height": image.size[1],
+                    "rotate": 0,
+                    "mirror": False,
+                    "crop": None,
+                    "out_width": None,
+                    "out_height": None,
+                },
+            )
+        said = f"Saved {made_name} ({size}) to {where} in {time.time() - started:.0f} s"
         log(said)
         return self.store.patch(EDIT, edit["id"], {"status": "done", "message": said, "output": made["id"]})
 
-
-def fitted(image: Image.Image, width: int) -> Image.Image:
-    """The picture *width* pixels wide, or as it is when it is narrower."""
-    width = min(max(16, int(width)), WIDEST)
-    if image.width <= width:
-        return image
-    return image.resize((width, max(1, round(image.height * width / image.width))), Image.Resampling.LANCZOS)
-
-
-def ensure_folder(store, share: str, folder: str) -> None:
-    """The exports' folder, made the first time there is something to put in it."""
-    try:
-        if any(
-            f["fields"].get("kind") == "folder" and f["fields"].get("name") == folder
-            for f in store.records(FILE, share=share, folder="")
-        ):
-            return
-        store.create(FILE, {"share": share, "folder": "", "name": folder, "kind": "folder"})
-    except ApiError as exc:
-        # Made meanwhile is as good; anything else, the upload says.
-        log("the exports folder:", exc)
+    def write_over(self, photo: dict, share: str, folder: str, out: Path) -> dict:
+        """The saved picture in the photo's place: put beside it under a working
+        name, the photo moved to the Trash, the new one given its name — and so
+        its id, which a file's path makes."""
+        photo_name = str(photo["fields"].get("name") or "photo.jpg")
+        stem, suffix = split_name(photo_name, photo_name)
+        working = unique_name(self.store, share, folder, f"{stem} (saving)", suffix)
+        made = self.store.upload(share, folder, working, out)
+        self.store.delete(FILE, photo["id"])
+        return self.store.patch(FILE, made["id"], {"name": photo_name})
 
 
-def export_stem(name) -> str:
-    """What an export is called, without the suffix; nothing a file name cannot hold."""
-    stem = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', " ", str(name or "")).strip(" .")
-    return stem or "Export"
+def split_name(name: str, like: str) -> tuple[str, str]:
+    """`(stem, suffix)` of a file name; a name with no suffix takes *like*'s."""
+    clean = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', " ", str(name or "")).strip(" .")
+    path = Path(clean)
+    suffix = path.suffix if path.suffix.lower() in FORMATS or (path.suffix and len(path.suffix) <= 6) else ""
+    stem = path.stem if suffix else clean
+    if not suffix:
+        suffix = Path(like).suffix or ".jpg"
+    return stem or "Photo", suffix
 
 
 def unique_name(store, share: str, folder: str, stem: str, suffix: str) -> str:
@@ -604,7 +748,7 @@ def main() -> None:
         log("pictures on port", os.environ["PORT"])
     threading.Thread(target=every, args=(renderer.fill, "filling in"), name="fill", daemon=True).start()
     with contextlib.suppress(KeyboardInterrupt):
-        every(renderer.render_queued, "exports")
+        every(renderer.save_queued, "saving")
 
 
 if __name__ == "__main__":

@@ -1,16 +1,17 @@
-# Retouch: a basic photo editor. The photos in My Files are its material; an
-# edit takes one of them, turns and mirrors it, lays words on it, crops it,
-# makes it another size, and exports a new file to My Files › Retouch
-# Exports. The editor is Cloudmorrow's photo kit, drawn on every surface;
-# the pictures and the export come from a service beside the server, with
-# the Pillow the server's Python has. See CLAUDE.md for the format and the
-# loop.
+# Retouch: a simple photo editor, laid out like a picture program. The photos
+# in My Files are its material; an edit takes one of them, turns and mirrors
+# it, lays layers on it — words, marker strokes, pieces copied and pasted —
+# crops it, makes it another size, and saves it over the photo or as a new
+# file beside it. The editor is Cloudmorrow's photo kit, drawn on every
+# surface; the pictures and the saving come from a service beside the
+# server, with the Pillow the server's Python has. See CLAUDE.md for the
+# format and the loop.
 
 [quill]
 id = "retouch"
 name = "Retouch"
-version = "1.0.0"
-summary = "A basic photo editor for the photos in your drive: crop, turn, resize, write on them, and save a new file."
+version = "2.0.0"
+summary = "A simple photo editor for the photos in your drive: crop, turn, resize, draw and write on them in layers, copy and paste, and save over the photo or as a new file."
 category = "creative"
 icon = "paintbrush"
 publisher = "Cloudmorrow"
@@ -18,11 +19,15 @@ license = "AGPL-3.0-or-later"
 code = "quill.py"
 features = [
   "Every photo in My Files is material: Edit this photo, on a photo in Media or Files, starts an edit of it; so does New, from the photos in the drive",
-  "Crop by dragging a box, held to a shape if you like — square, 4 : 3, 3 : 2, 16 : 9, tall",
+  "Laid out like a picture program: tools down the left, the picture in the middle, the tool's options, the image and the layers on the right",
+  "Crop by drawing or dragging a box, held to a shape if you like — square, 4 : 3, 3 : 2, 16 : 9, tall — or crop to a selection",
   "Turn by quarter turns, mirror",
-  "Words on the picture, in the app's own letters: dragged into place, sized by their corner, in any colour",
+  "Marker: draw on the picture in any colour, fine to thick, as a pen or a see-through highlighter",
+  "Words on the picture, in the app's own letters: put where you press, dragged into place, sized by their corner, in any colour",
+  "Select a part of the picture, copy it, and paste it back as a piece to move and size",
+  "Layers: everything you add is one, listed top first, hidden with an eye, brought forward or sent back, duplicated, removed",
   "Make it another size: half, a quarter, a width, or any width and height",
-  "Export as JPEG, PNG or WebP into My Files › Retouch Exports; the original is never touched",
+  "Save over the photo (the one before goes to the Trash) or as a new file beside it, as JPEG, PNG or WebP by its name",
   "The same editor on the web and the phone (live), in the terminal (the real picture) and on the command line",
 ]
 
@@ -40,10 +45,10 @@ kit = "photo"
 label = "Retouch"
 model = "retouch.edit"
 title = "name"
-texts = "retouch.text"
+layers = "retouch.layer"
 media = { share = "my-files", within = "Photos" }
 pictures = "pictures"
-export = "export"
+save = "save"
 
 # -- actions -------------------------------------------------------------------------
 # A photo becomes an edit: a button on every file's sheet, so on a photo
@@ -57,17 +62,18 @@ description = "Starts an edit of this photo: the original is never changed."
 [actions.fields]
 name = { kind = "string", description = "What to call the edit; the photo's name when left out" }
 
-# The export: rendered beside the server, and put in My Files › Retouch
-# Exports. The edit says how it goes.
+# Save: rendered beside the server, and written over the photo (the one
+# before goes to the Trash) or put beside it as a new file. The editor asks
+# which and presses this with both answered; the edit says how it goes.
 [[actions]]
-id = "export"
-label = "Export"
+id = "save"
+label = "Save"
 on = "retouch.edit"
 tone = "primary"
-description = "Saves the edited picture as a new file in My Files › Retouch Exports."
+description = "Saves the picture over the photo, or as a new file beside it, by its name's suffix: .jpg, .png or .webp."
 [actions.fields]
-format = { kind = "enum", values = ["jpeg", "png", "webp"], labels = ["JPEG (photos, small)", "PNG (exact, larger)", "WebP (small, modern)"], default = "jpeg", required = true }
-name = { kind = "string", description = "What to call the file; the edit's name when left out" }
+overwrite = { kind = "bool", default = false, label = "Over the photo", description = "Write over the photo itself; the one before goes to the Trash" }
+name = { kind = "string", description = "What to call the new file, suffix and all; the photo's name when writing over it" }
 
 # Draw the screen again: the renderer works beside the server.
 [[actions]]
@@ -78,7 +84,7 @@ assistant = false
 # -- the renderer ----------------------------------------------------------------------
 # A program beside the server, with Pillow: it answers the pictures API the
 # editor's terminal viewer draws from, fills in the sizes the kit leaves
-# blank, and renders the exports people ask for. It works through the record
+# blank, and does the saving people ask for. It works through the record
 # API, as the administrator who installed Retouch.
 [[services]]
 id = "draw"
@@ -99,4 +105,4 @@ quills = ["media"]
 # The pictures on the catalog's page: the same edit on the three surfaces.
 [[screenshots]]
 id = "retouch"
-caption = "Words on a cropped photo, picked to move; the size it comes out at beside"
+caption = "Tools down the left, the picture, and its layers: words, a marker stroke, a pasted piece"

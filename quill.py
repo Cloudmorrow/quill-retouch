@@ -1,20 +1,18 @@
 """Retouch: the code behind the buttons.
 
 The editor itself is Cloudmorrow's photo kit, declared in quill.toml: edits
-of one photo each, and the words laid on them, with the kit's own field
+of one photo each, and the layers laid on them, with the kit's own field
 names. This is the rest, run in the sandbox as whoever presses it: starting
 an edit from a photo (a button on its sheet, in Media or Files), and asking
-for an export. The photo itself is never touched here: services/picture.py,
-a program beside the server, draws the pictures, fills in sizes, and
-renders the exports.
+for a save. The photo itself is never touched here: services/picture.py, a
+program beside the server, draws the pictures, fills in sizes, and does the
+saving.
 """
 
 from cloudmorrow.quill import action, error, go, redraw, toast
 
-EDIT, TEXT, FILE = "retouch.edit", "retouch.text", "file"
-EXPORTS = "Retouch Exports"
+EDIT, LAYER, FILE = "retouch.edit", "retouch.layer", "file"
 PHOTO_SUFFIXES = (".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".heic", ".heif", ".avif")
-FORMATS = {"jpeg": "JPEG", "png": "PNG", "webp": "WebP"}
 
 
 def is_photo(record):
@@ -36,25 +34,30 @@ def edit_photo(ctx, photo, name=""):
     return [toast(f"Editing {title}"), go("editor", edit=edit.id)]
 
 
-@action("export")
-def export(ctx, edit, format="jpeg", name=""):
+@action("save")
+def save(ctx, edit, overwrite=False, name=""):
     if edit.get("status") in ("queued", "rendering"):
-        return error("It is being exported already; wait for it to finish")
+        return error("It is being saved already; wait for it to finish")
     if not edit.get("source"):
-        return error("This edit has no photo: there is nothing to export")
-    if format not in FORMATS:
-        return error(f"No such format: {format}")
+        return error("This edit has no photo: there is nothing to save")
+    name = (name or "").strip()
+    if not overwrite and not name:
+        return error("Give the new file a name")
+    if not overwrite and "/" in name:
+        return error("A name has no slashes: the file goes beside the photo")
     ctx.records.patch(
         EDIT,
         edit.id,
         {
             "status": "queued",
-            "message": f"Waiting to be exported as {FORMATS[format]}",
-            "format": format,
-            "export_name": (name or "").strip() or edit["name"],
+            "message": "Waiting to be written over the photo" if overwrite else f"Waiting to be saved as {name}",
+            "overwrite": bool(overwrite),
+            "save_name": name,
         },
     )
-    return toast(f"Queued: the picture lands in My Files › {EXPORTS}")
+    if overwrite:
+        return toast("Saving over the photo; the one before goes to the Trash")
+    return toast(f"Saving as {name}, beside the photo")
 
 
 @action("refresh")
