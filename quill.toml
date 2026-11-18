@@ -1,0 +1,102 @@
+# Retouch: a basic photo editor. The photos in My Files are its material; an
+# edit takes one of them, turns and mirrors it, lays words on it, crops it,
+# makes it another size, and exports a new file to My Files › Retouch
+# Exports. The editor is Cloudmorrow's photo kit, drawn on every surface;
+# the pictures and the export come from a service beside the server, with
+# the Pillow the server's Python has. See CLAUDE.md for the format and the
+# loop.
+
+[quill]
+id = "retouch"
+name = "Retouch"
+version = "1.0.0"
+summary = "A basic photo editor for the photos in your drive: crop, turn, resize, write on them, and save a new file."
+category = "personal"
+icon = "paintbrush"
+publisher = "Cloudmorrow"
+license = "AGPL-3.0-or-later"
+code = "quill.py"
+features = [
+  "Every photo in My Files is material: Edit this photo, on a photo in Media or Files, starts an edit of it; so does New, from the photos in the drive",
+  "Crop by dragging a box, held to a shape if you like — square, 4 : 3, 3 : 2, 16 : 9, tall",
+  "Turn by quarter turns, mirror",
+  "Words on the picture, in the app's own letters: dragged into place, sized by their corner, in any colour",
+  "Make it another size: half, a quarter, a width, or any width and height",
+  "Export as JPEG, PNG or WebP into My Files › Retouch Exports; the original is never touched",
+  "The same editor on the web and the phone (live), in the terminal (the real picture) and on the command line",
+]
+
+# The material and the exports are files in the person's drive.
+[uses]
+datamodels = ["file"]
+
+# -- screens -------------------------------------------------------------------------
+# The edits, and each one in the editor: Cloudmorrow's photo kit (docs/PHOTO.md
+# in the core). The photos are the ones in My Files › Photos; looking through
+# them is Media's, which Retouch requires and adds Edit this photo to.
+[[screens]]
+id = "editor"
+kit = "photo"
+label = "Retouch"
+model = "retouch.edit"
+title = "name"
+texts = "retouch.text"
+media = { share = "my-files", within = "Photos" }
+pictures = "pictures"
+export = "export"
+
+# -- actions -------------------------------------------------------------------------
+# A photo becomes an edit: a button on every file's sheet, so on a photo
+# opened in Media or Files.
+[[actions]]
+id = "edit-photo"
+label = "Edit this photo"
+on = "file"
+tone = "primary"
+description = "Starts an edit of this photo: the original is never changed."
+[actions.fields]
+name = { kind = "string", description = "What to call the edit; the photo's name when left out" }
+
+# The export: rendered beside the server, and put in My Files › Retouch
+# Exports. The edit says how it goes.
+[[actions]]
+id = "export"
+label = "Export"
+on = "retouch.edit"
+tone = "primary"
+description = "Saves the edited picture as a new file in My Files › Retouch Exports."
+[actions.fields]
+format = { kind = "enum", values = ["jpeg", "png", "webp"], labels = ["JPEG (photos, small)", "PNG (exact, larger)", "WebP (small, modern)"], default = "jpeg", required = true }
+name = { kind = "string", description = "What to call the file; the edit's name when left out" }
+
+# Draw the screen again: the renderer works beside the server.
+[[actions]]
+id = "refresh"
+label = "Refresh"
+assistant = false
+
+# -- the renderer ----------------------------------------------------------------------
+# A program beside the server, with Pillow: it answers the pictures API the
+# editor's terminal viewer draws from, fills in the sizes the kit leaves
+# blank, and renders the exports people ask for. It works through the record
+# API, as the administrator who installed Retouch.
+[[services]]
+id = "draw"
+command = ["python", "services/picture.py"]
+always = true
+
+# The pictures API: /api/q/retouch/pictures/info, /source and /picture.
+[[apis]]
+id = "pictures"
+service = "draw"
+prefix = "pictures"
+
+# Media shows the photos in the drive; Retouch edits them. Installing Retouch
+# installs Media first; Media needs nothing of Retouch.
+[requires]
+quills = ["media"]
+
+# The pictures on the catalog's page: the same edit on the three surfaces.
+[[screenshots]]
+id = "retouch"
+caption = "Words on a cropped photo, picked to move; the size it comes out at beside"

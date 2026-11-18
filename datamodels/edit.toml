@@ -1,0 +1,28 @@
+# One edit of one photo: how it is turned, what is kept, how big it comes
+# out, and how its export went. The field names are the photo kit's
+# (docs/PHOTO.md in the core), so every surface draws it.
+
+[datamodel]
+id = "retouch.edit"
+version = 1
+label = "Edit"
+description = "A photo being edited: turned, mirrored, cropped, made another size, with words on it, and its export."
+scopes = ["personal"]
+title = "name"
+
+[fields]
+name = { kind = "string", required = true }
+source = { kind = "string", required = true, indexed = true, label = "Photo", description = "The file it is made from, in My Files; never changed" }
+width = { kind = "int", description = "The photo's width in pixels, as taken; filled in when blank" }
+height = { kind = "int", description = "The photo's height in pixels, as taken; filled in when blank" }
+rotate = { kind = "int", default = 0, label = "Turn", description = "Quarter turns clockwise, in degrees: 0, 90, 180 or 270" }
+mirror = { kind = "bool", default = false, description = "Flipped left to right" }
+crop = { kind = "json", description = "The part kept, in percent of the turned picture: {x, y, w, h}; blank keeps all of it" }
+out_width = { kind = "int", label = "Width", description = "The export's width in pixels; blank keeps the cropped picture's" }
+out_height = { kind = "int", label = "Height", description = "The export's height in pixels; blank keeps the shape" }
+status = { kind = "enum", values = ["editing", "queued", "rendering", "done", "failed"], labels = ["Editing", "Queued", "Rendering", "Exported", "Failed"], default = "editing", indexed = true }
+message = { kind = "string", description = "What the renderer last said about it" }
+output = { kind = "string", label = "Export", description = "The last export: a file in My Files › Retouch Exports" }
+format = { kind = "enum", values = ["jpeg", "png", "webp"], labels = ["JPEG", "PNG", "WebP"], default = "jpeg", description = "What the export is" }
+export_name = { kind = "string", label = "Export name", description = "What the export is called; the edit's name when blank" }
+exported_at = { kind = "datetime", indexed = true, stamp = { field = "status", value = "done" } }
