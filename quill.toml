@@ -10,7 +10,7 @@
 [quill]
 id = "retouch"
 name = "Retouch"
-version = "2.0.0"
+version = "2.0.1"
 summary = "A simple photo editor for the photos in your drive: crop, turn, resize, draw and write on them in layers, copy and paste, and save over the photo or as a new file."
 category = "creative"
 icon = "paintbrush"

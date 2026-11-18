@@ -86,4 +86,4 @@ See [CLAUDE.md](CLAUDE.md). In short: `cm quill check`, `cm quill test`
 (and `--sandbox`), then `cm quill dev --local`. The renderer is tested
 without a server in `tests/test_picture.py`, on pictures Pillow makes,
 down to the pixels of a save. It needs a core with the photo kit's layers
-and save (Cloudmorrow 0.102.0 or later).
+and save (Cloudmorrow 0.103.0 or later).
