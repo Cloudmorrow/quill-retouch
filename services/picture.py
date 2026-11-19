@@ -267,7 +267,7 @@ def layer_of(fields: dict) -> dict:
 
 
 def in_order(records: list[dict]) -> list[dict]:
-    """Layer records, lowest first: by order, then by when they were made."""
+    """Element records, lowest first: by order, then by when they were made."""
     return sorted(
         records,
         key=lambda r: (
@@ -276,6 +276,36 @@ def in_order(records: list[dict]) -> list[dict]:
             str(r.get("id") or ""),
         ),
     )
+
+
+def groups_of(fields: dict) -> list[dict]:
+    """The edit's layers, lowest first — `[{id, name, hidden}, …]` — at least one (the kit's sums)."""
+    out: list[dict] = []
+    seen: set[str] = set()
+    for i, item in enumerate(fields.get("layers") if isinstance(fields.get("layers"), list) else []):
+        if not isinstance(item, dict):
+            continue
+        ident = str(item.get("id") or i + 1)
+        if ident in seen:
+            continue
+        seen.add(ident)
+        out.append({"id": ident, "hidden": bool(item.get("hidden"))})
+    return out or [{"id": "1", "hidden": False}]
+
+
+def drawn(records: list[dict], edit_fields: dict) -> list[dict]:
+    """The elements that are seen, in drawing order: layer by layer, lowest
+    first, within a layer by order; nothing hidden, nothing on a hidden layer."""
+    groups = groups_of(edit_fields)
+    place = {g["id"]: i for i, g in enumerate(groups)}
+    hidden = {g["id"] for g in groups if g["hidden"]}
+
+    def layer_of(record: dict) -> str:
+        said = str((record.get("fields") or {}).get("layer") or "")
+        return said if said in place else groups[0]["id"]
+
+    ordered = sorted(in_order(records), key=lambda r: place[layer_of(r)])
+    return [r for r in ordered if not (r.get("fields") or {}).get("hidden") and layer_of(r) not in hidden]
 
 
 # -- letters -----------------------------------------------------------------------------
@@ -400,7 +430,8 @@ def cropped(image: Image.Image, crop: dict) -> Image.Image:
 
 
 def compose(image: Image.Image, fields: dict, layers: list[dict]) -> Image.Image:
-    """The edit done to the picture, in the kit's order: turn, mirror, the layers lowest first, crop."""
+    """The edit done to the picture, in the kit's order: turn, mirror, the
+    elements layer by layer, lowest first (*layers* as `drawn` orders them), crop."""
     source = turned(image, rotation_of(fields), bool(fields.get("mirror")))
     shown = [layer_of(f) for f in layers]
     shown = [layer for layer in shown if not layer["hidden"]]
@@ -500,7 +531,8 @@ class Renderer:
         return found
 
     def layers(self, edit: dict) -> list[dict]:
-        return [r["fields"] for r in in_order(self.store.records(LAYER, edit=edit["id"]))]
+        """The edit's elements as they are drawn: by layer, nothing hidden."""
+        return [r["fields"] for r in drawn(self.store.records(LAYER, edit=edit["id"]), edit["fields"])]
 
     def picture_jpeg(self, edit_id: str, width: int, user: str | None = None) -> bytes:
         """The edit as it would save, *width* pixels wide: drawn from a smaller
@@ -614,6 +646,7 @@ class Renderer:
                     "crop": None,
                     "out_width": None,
                     "out_height": None,
+                    "layers": None,
                 },
             )
         said = f"Saved {made_name} ({size}) to {where} in {time.time() - started:.0f} s"

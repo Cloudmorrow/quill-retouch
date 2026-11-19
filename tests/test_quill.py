@@ -36,7 +36,7 @@ def a_file(q, name="beach.jpg", folder="Photos"):
 def test_the_photo_screen_and_its_datamodels_check_out():
     manifest = tomllib.loads(Path("quill.toml").read_text())
     (editor,) = [s for s in manifest["screens"] if s.get("kit") == "photo"]
-    assert editor["layers"] == LAYER and editor["pictures"] == "pictures" and editor["save"] == "save"
+    assert editor["elements"] == LAYER and editor["pictures"] == "pictures" and editor["save"] == "save"
     assert "export" not in editor and editor["media"] == {"share": "my-files", "within": "Photos"}
     # The edits come first: Retouch opens on them, and `cm retouch` has the photo kit's words.
     # Looking through the photos is Media's, which Retouch brings with it.

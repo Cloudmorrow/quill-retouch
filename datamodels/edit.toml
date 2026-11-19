@@ -6,7 +6,7 @@
 id = "retouch.edit"
 version = 1
 label = "Edit"
-description = "A photo being edited: turned, mirrored, cropped, made another size, with layers on it, and how it was last saved."
+description = "A photo being edited: turned, mirrored, cropped, made another size, its layers and what is on them, and how it was last saved."
 scopes = ["personal"]
 title = "name"
 
@@ -20,6 +20,7 @@ mirror = { kind = "bool", default = false, description = "Flipped left to right"
 crop = { kind = "json", description = "The part kept, in percent of the turned picture: {x, y, w, h}; blank keeps all of it" }
 out_width = { kind = "int", label = "Width", description = "The saved picture's width in pixels; blank keeps the cropped picture's" }
 out_height = { kind = "int", label = "Height", description = "The saved picture's height in pixels; blank keeps the shape" }
+layers = { kind = "json", description = "The layers, lowest first: [{id, name, hidden}, …]; blank is one layer. Every element names its layer; one that names none is on the first" }
 status = { kind = "enum", values = ["editing", "queued", "rendering", "done", "failed"], labels = ["Editing", "Queued", "Saving", "Saved", "Failed"], default = "editing", indexed = true }
 message = { kind = "string", description = "What the renderer last said about it" }
 output = { kind = "string", label = "Saved as", description = "The last save: the photo itself, or the new file beside it" }

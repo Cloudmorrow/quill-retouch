@@ -1,19 +1,23 @@
-# What is laid on an edit's picture, bottom to top: words, marker strokes,
-# and pieces copied out of the picture. Placed on the turned picture before
-# the crop, so cropping keeps a layer on the same part of the photo. The
-# field names are the photo kit's (docs/PHOTO.md in the core).
+# An element laid on an edit's picture — words, a marker stroke, or a piece
+# copied out of the picture — on one of the edit's layers (`layer`, by id;
+# the first when blank). Drawn layer by layer, lowest first, and within a
+# layer by `order`. Placed on the turned picture before the crop, so
+# cropping keeps an element on the same part of the photo. The field names
+# are the photo kit's (docs/PHOTO.md in the core); the datamodel keeps its
+# first name, retouch.layer, for the edits already made.
 
 [datamodel]
 id = "retouch.layer"
 version = 1
-label = "Layer"
-description = "Words, a marker stroke, or a piece of the picture, laid on an edited photo."
+label = "Element"
+description = "Words, a marker stroke, or a piece of the picture, laid on one layer of an edited photo."
 scopes = ["personal"]
 title = "text"
 
 [fields]
 edit = { kind = "link", to = "retouch.edit", required = true, indexed = true, on_delete = "cascade" }
 kind = { kind = "enum", values = ["text", "mark", "piece"], labels = ["Text", "Mark", "Piece"], default = "text", indexed = true }
+layer = { kind = "string", description = "The layer it is on, by the edit's layer id; blank is the first layer" }
 x = { kind = "decimal", required = true, default = 6, label = "Left", description = "The left edge, in percent of the picture's width" }
 y = { kind = "decimal", required = true, default = 6, label = "Top", description = "The top edge, in percent of the picture's height" }
 w = { kind = "decimal", label = "Width", description = "A piece: how wide it is placed, in percent of the picture" }

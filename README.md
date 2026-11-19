@@ -38,9 +38,13 @@ with the Pillow it already has. Nothing leaves it.
      medium, thick) and a style: a solid pen, or a see-through highlighter.
      Each stroke is a layer.
    - **Left**, **Right** and **Mirror** turn and flip the whole picture.
-3. **Layers**, on the right, list everything you added, the top one first.
-   The eye hides a layer; the chosen one can be brought forward, sent
-   back, duplicated (ctrl+D) or removed (Delete).
+3. **Layers**, at the foot of the right-hand column, where they stay put:
+   everything you add — words, strokes, pieces — lands on the current
+   layer, so one layer can hold a lot. **New layer** makes another to work
+   on; press a layer to work on it, press it again to name it; the eye
+   hides and shows it with everything on it; the current one can be
+   brought forward, sent back, or removed with what is on it. An element
+   itself can still be duplicated (ctrl+D) or removed (Delete).
 4. **Resize**, on the bar above the picture, says what the saved picture
    will be: as it is, half, a quarter, a usual width, or any width and
    height you type.
@@ -52,16 +56,17 @@ with the Pillow it already has. Nothing leaves it.
 
 In the terminal the picture is the real one, drawn as it will save, and
 every step is a key: r and R turn, m mirrors, c crops (C keeps all), s
-sizes, t writes, enter edits a layer, k moves it, h hides it, shift+↑/↓
-restacks it, x removes it, w saves. On the command line, `cm retouch add
-beach.jpg`, `turn`, `mirror`, `crop`, `size`, `text`, `move`, `layers`,
+sizes, t writes (on the top layer), enter edits an element, k moves it,
+shift+↑/↓ restacks it, x removes it; l makes a layer, enter names it, h
+hides it with everything on it; w saves. On the command line, `cm retouch add
+beach.jpg`, `turn`, `mirror`, `crop`, `size`, `text`, `move`, `layers`, `layer`,
 `rm`, `picture` and `save` do the same.
 
 ## What it adds to your Cloudmorrow
 
 | | |
 | --- | --- |
-| Datamodels | uses the foundational `file`; introduces `retouch.edit` (one photo being edited: its turn, mirror, crop, saved size, and how it was last saved) and `retouch.layer` (what is laid on it: words, a marker stroke, or a piece of the picture — where, how big, which colour, hidden or not, and its place in the stack) |
+| Datamodels | uses the foundational `file`; introduces `retouch.edit` (one photo being edited: its turn, mirror, crop, saved size, its layers, and how it was last saved) and `retouch.layer` (an element laid on one of its layers: words, a marker stroke, or a piece of the picture — where, how big, which colour, and its place in the stack) |
 | Screens | Retouch (the edits and the editor: the photo kit) — on the phone, the web app, the terminal, `cm retouch`, and to your assistant |
 | Actions | Edit this photo (on a photo's sheet — only a photo's — in Media or Files), Save (over the photo, or as a new file by name), Refresh |
 | Quills | requires [Media](https://github.com/Cloudmorrow/quill-media), which shows the photos and videos in your drive and is installed with Retouch |
