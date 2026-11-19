@@ -10,7 +10,7 @@
 [quill]
 id = "retouch"
 name = "Retouch"
-version = "2.1.0"
+version = "2.1.1"
 summary = "A simple photo editor for the photos in your drive: crop, turn, resize, draw and write on them in layers, copy and paste, and save over the photo or as a new file."
 category = "creative"
 icon = "paintbrush"
@@ -24,7 +24,8 @@ features = [
   "Turn by quarter turns, mirror",
   "Marker: draw on the picture in any colour, fine to thick, as a pen or a see-through highlighter",
   "Words on the picture, in the app's own letters: put where you press, dragged into place, sized by their corner, in any colour",
-  "Select a part of the picture, copy it, and paste it back as a piece to move and size",
+  "Select, first among the tools and the one everything comes back to: press a layer to pick it, drag it, pull its corners; Escape, Done and words just laid all hand back to it",
+  "Marquee a part of the picture, copy it, and paste it back as a piece to move and size",
   "Layers: everything you add is one, listed top first, hidden with an eye, brought forward or sent back, duplicated, removed",
   "Resize, on the bar: half, a quarter, a width, or any width and height, in a sheet",
   "Save, on the bar: over the photo (the one before goes to the Trash) or as a new file beside it, as JPEG, PNG or WebP by its name",

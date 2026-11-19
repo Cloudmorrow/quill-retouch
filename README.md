@@ -19,8 +19,12 @@ with the Pillow it already has. Nothing leaves it.
    **Edit this photo** on it — a photo's sheet has it, nothing else's —
    opens the photo under its own name, with nothing to type first.
 2. The tools, down the left:
-   - **Move** (V): press a layer to pick it, drag it, pull its corners.
-   - **Select** (M): drag a box on the picture. **Copy** takes what is in
+   - **Select** (V), the first tool and the one you come back to: press a
+     layer to pick it, drag it, pull its corners. Escape, Done, Paste and
+     words just laid all hand back to it.
+   - **Move** (G): the chosen layer follows your hand wherever you press,
+     for a stroke or a small piece that is hard to take hold of.
+   - **Marquee** (M): drag a box on the picture. **Copy** takes what is in
      it and **Paste** (also ctrl+V) lays it on the picture as a piece you
      can move and size; **Crop to it** crops the picture to the box.
    - **Crop** (C): drag the box, pull its corners, draw a new one, or hold
@@ -28,7 +32,8 @@ with the Pillow it already has. Nothing leaves it.
      all of it undoes the crop.
    - **Text** (T): press on the picture to put words there, in the app's
      own letters with a thin dark edge so they read on anything. Type the
-     words, set the size and pick a colour in the panel.
+     words, set the size and pick a colour in the panel; the tool is Select
+     again at once, so the next press moves or sizes the words.
    - **Marker** (B): draw on the picture. Pick a colour, a width (fine,
      medium, thick) and a style: a solid pen, or a see-through highlighter.
      Each stroke is a layer.
