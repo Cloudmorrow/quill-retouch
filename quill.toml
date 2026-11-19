@@ -10,7 +10,7 @@
 [quill]
 id = "retouch"
 name = "Retouch"
-version = "2.0.1"
+version = "2.1.0"
 summary = "A simple photo editor for the photos in your drive: crop, turn, resize, draw and write on them in layers, copy and paste, and save over the photo or as a new file."
 category = "creative"
 icon = "paintbrush"
@@ -18,16 +18,16 @@ publisher = "Cloudmorrow"
 license = "AGPL-3.0-or-later"
 code = "quill.py"
 features = [
-  "Every photo in My Files is material: Edit this photo, on a photo in Media or Files, starts an edit of it; so does New, from the photos in the drive",
-  "Laid out like a picture program: tools down the left, the picture in the middle, the tool's options, the image and the layers on the right",
+  "Every photo in My Files is material: Edit this photo, on a photo in Media or Files (and only on a photo), opens it under its own name; so does New, from the photos in the drive",
+  "Laid out like a picture program: Resize, Save and how the save went on a bar across the top, tools down the left, the picture in the middle, the tool's options and the layers on the right",
   "Crop by drawing or dragging a box, held to a shape if you like — square, 4 : 3, 3 : 2, 16 : 9, tall — or crop to a selection",
   "Turn by quarter turns, mirror",
   "Marker: draw on the picture in any colour, fine to thick, as a pen or a see-through highlighter",
   "Words on the picture, in the app's own letters: put where you press, dragged into place, sized by their corner, in any colour",
   "Select a part of the picture, copy it, and paste it back as a piece to move and size",
   "Layers: everything you add is one, listed top first, hidden with an eye, brought forward or sent back, duplicated, removed",
-  "Make it another size: half, a quarter, a width, or any width and height",
-  "Save over the photo (the one before goes to the Trash) or as a new file beside it, as JPEG, PNG or WebP by its name",
+  "Resize, on the bar: half, a quarter, a width, or any width and height, in a sheet",
+  "Save, on the bar: over the photo (the one before goes to the Trash) or as a new file beside it, as JPEG, PNG or WebP by its name",
   "The same editor on the web and the phone (live), in the terminal (the real picture) and on the command line",
 ]
 
@@ -51,16 +51,17 @@ pictures = "pictures"
 save = "save"
 
 # -- actions -------------------------------------------------------------------------
-# A photo becomes an edit: a button on every file's sheet, so on a photo
-# opened in Media or Files.
+# A photo becomes an edit: a button on a photo's sheet — only a photo's,
+# by its name — so on one opened in Media or Files. Nothing is asked: the
+# edit opens under the photo's own name, and the photo is not touched until
+# it is saved over.
 [[actions]]
 id = "edit-photo"
 label = "Edit this photo"
 on = "file"
+only = { kind = "file", name = ["*.jpg", "*.jpeg", "*.png", "*.gif", "*.webp", "*.bmp", "*.tif", "*.tiff", "*.heic", "*.heif", "*.avif"] }
 tone = "primary"
-description = "Starts an edit of this photo: the original is never changed."
-[actions.fields]
-name = { kind = "string", description = "What to call the edit; the photo's name when left out" }
+description = "Opens this photo in Retouch, under its own name: the photo itself is not changed until you save over it."
 
 # Save: rendered beside the server, and written over the photo (the one
 # before goes to the Trash) or put beside it as a new file. The editor asks

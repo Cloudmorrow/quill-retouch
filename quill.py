@@ -26,10 +26,10 @@ def is_photo(record):
 
 # -- buttons --------------------------------------------------------------------------------
 @action("edit_photo")
-def edit_photo(ctx, photo, name=""):
+def edit_photo(ctx, photo):
     if not is_photo(photo):
         return error(f"{photo['name']} is not a photo")
-    title = (name or "").strip() or str(photo["name"]).rsplit(".", 1)[0] or "Photo"
+    title = str(photo["name"]).rsplit(".", 1)[0] or "Photo"
     edit = ctx.records.create(EDIT, name=title, source=photo.id, status="editing")
     return [toast(f"Editing {title}"), go("editor", edit=edit.id)]
 

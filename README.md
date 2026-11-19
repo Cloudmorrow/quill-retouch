@@ -16,7 +16,8 @@ with the Pillow it already has. Nothing leaves it.
 1. Open **Retouch**: it starts on your edits. The new button shows the
    photos in My Files › Photos (or any other drive you have) and starts an
    edit of the one you pick. Or start from a photo in **Media** (or Files):
-   **Edit this photo** on it does the same.
+   **Edit this photo** on it — a photo's sheet has it, nothing else's —
+   opens the photo under its own name, with nothing to type first.
 2. The tools, down the left:
    - **Move** (V): press a layer to pick it, drag it, pull its corners.
    - **Select** (M): drag a box on the picture. **Copy** takes what is in
@@ -35,10 +36,11 @@ with the Pillow it already has. Nothing leaves it.
 3. **Layers**, on the right, list everything you added, the top one first.
    The eye hides a layer; the chosen one can be brought forward, sent
    back, duplicated (ctrl+D) or removed (Delete).
-4. **Image** says what the saved picture will be: as it is, half, a
-   quarter, a usual width, or any width and height you type.
-5. **Save** (ctrl+S) asks: write over the photo, or save as a new file by
-   a name. Written over, the photo as it was goes to the Trash for thirty
+4. **Resize**, on the bar above the picture, says what the saved picture
+   will be: as it is, half, a quarter, a usual width, or any width and
+   height you type.
+5. **Save** (ctrl+S), on the same bar, asks: write over the photo, or save
+   as a new file by a name. Written over, the photo as it was goes to the Trash for thirty
    days, and the edit starts afresh on the saved picture. Saved as a new
    file, it lands beside the photo, as JPEG, PNG or WebP by the name's
    suffix; the edit keeps its layers for more.
@@ -56,7 +58,7 @@ beach.jpg`, `turn`, `mirror`, `crop`, `size`, `text`, `move`, `layers`,
 | --- | --- |
 | Datamodels | uses the foundational `file`; introduces `retouch.edit` (one photo being edited: its turn, mirror, crop, saved size, and how it was last saved) and `retouch.layer` (what is laid on it: words, a marker stroke, or a piece of the picture — where, how big, which colour, hidden or not, and its place in the stack) |
 | Screens | Retouch (the edits and the editor: the photo kit) — on the phone, the web app, the terminal, `cm retouch`, and to your assistant |
-| Actions | Edit this photo (on a photo's sheet, in Media or Files), Save (over the photo, or as a new file by name), Refresh |
+| Actions | Edit this photo (on a photo's sheet — only a photo's — in Media or Files), Save (over the photo, or as a new file by name), Refresh |
 | Quills | requires [Media](https://github.com/Cloudmorrow/quill-media), which shows the photos and videos in your drive and is installed with Retouch |
 | Services, APIs | `draw`: a program beside the server (`services/picture.py`), kept running, with Pillow. It serves the `pictures` API the terminal's viewer draws from (`/api/q/retouch/pictures/info`, `/source`, `/picture`), fills in the sizes the editor leaves blank, and does the saving, through the record API |
 

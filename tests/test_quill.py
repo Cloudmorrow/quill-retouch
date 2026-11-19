@@ -60,14 +60,18 @@ def test_edit_this_photo_starts_an_edit_and_opens_it(q):
 
 def test_an_edit_may_be_named(q):
     photo = a_file(q, "IMG_0001.HEIC")
-    assert q.act("edit-photo", photo, name="Dinner").toast == "Editing Dinner"
     assert q.act("edit-photo", photo).toast == "Editing IMG_0001"
 
 
 def test_only_a_photo_can_be_edited(q):
+    """The button is a photo's alone (`only`, by the file's name): the server
+    refuses the press on anything else before the code runs, and the code
+    says no too, for a photo-named file that is not one."""
     notes = a_file(q, "notes.txt", "Documents")
-    assert q.act("edit-photo", notes).error == "notes.txt is not a photo"
+    refused = q.act("edit-photo", notes)
+    assert refused.refused and refused.message == "Edit this photo is not for this file"
     assert q.list(EDIT) == []
+    assert q.act("edit-photo", a_file(q, "Holiday.JPG")).ok, "a photo by its name, whatever its case"
 
 
 def test_save_over_the_photo_queues_the_edit_for_the_renderer(q):
