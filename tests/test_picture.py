@@ -373,3 +373,17 @@ def test_the_pictures_api_answers_info_source_and_picture(store, renderer, tmp_p
         assert refused.value.code == 404
     finally:
         server.shutdown()
+
+
+def test_a_hidden_layer_keeps_its_elements_off_the_picture(store, renderer, tmp_path):
+    """Layers are groups: an element on a hidden layer is not drawn, and layers
+    go lowest first whatever the elements' own order says."""
+    file = store.file(photo(tmp_path / "flat.jpg"), "Photos")
+    edit = store.add(EDIT, {"name": "Flat", "source": file["id"], "status": "editing",
+                            "layers": [{"id": "a", "name": "Under", "hidden": False}, {"id": "b", "name": "Over", "hidden": True}]})  # fmt: skip
+    store.add(LAYER, {"edit": edit["id"], "kind": "piece", "layer": "b", "order": 0, "source": {"x": 0, "y": 0, "w": 50, "h": 50}, "x": 0, "y": 0, "w": 100, "h": 100})  # fmt: skip
+    assert renderer.layers(store.record(EDIT, edit["id"])) == [], "the piece is on a hidden layer"
+    store.patch(EDIT, edit["id"], {"layers": [{"id": "b", "name": "Over", "hidden": False}, {"id": "a", "name": "Under", "hidden": False}]})  # fmt: skip
+    store.add(LAYER, {"edit": edit["id"], "kind": "text", "text": "Top", "layer": "a", "order": 9, "x": 1, "y": 1})
+    kinds = [f["kind"] for f in renderer.layers(store.record(EDIT, edit["id"]))]
+    assert kinds == ["piece", "text"], "the layer's place comes before the element's order"
